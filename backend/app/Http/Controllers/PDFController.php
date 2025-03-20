@@ -43,7 +43,7 @@ class PdfController extends Controller
     $apiKey = env('GEMINI_API_KEY');
 
     try {
-        $response = $client->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={$apiKey}", [
+        $response = $client->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-pro-exp-02-05:generateContent?key={$apiKey}", [
             'headers' => [
                 'Content-Type' => 'application/json',
             ],
@@ -52,7 +52,7 @@ class PdfController extends Controller
                     [
                         'parts' => [
                             [
-                                'text' => "Summarize the following text and generate 3 questions (easy, medium, hard) based on it:\n\n{$text}"
+                                'text' => "Return a JSON object with two keys: 'summary' (a summary of this text in 50 words) and 'questions' (an array of 3 objects, each with 'question' (a string), 'options' (array of 4 strings), and 'correct_answer' (a string matching one option)). Text:\n\n{$text}"
                             ]
                         ]
                     ]
@@ -65,9 +65,19 @@ class PdfController extends Controller
         ]);
 
         $data = json_decode($response->getBody(), true);
-        return $data['candidates'][0]['content']['parts'][0]['text'];
+        $rawText = $data['candidates'][0]['content']['parts'][0]['text'];
+
+        // Clean up the response by removing ```json and ``` markers
+        $cleanedText = preg_replace('/```json\n|\n```/', '', $rawText);
+        $jsonResponse = json_decode($cleanedText, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \Exception('Failed to parse AI response as JSON');
+        }
+
+        return $jsonResponse; // Return the parsed JSON object
     } catch (\Exception $e) {
         return 'Error calling Gemini API: ' . $e->getMessage();
     }
-}   
+}
 }
